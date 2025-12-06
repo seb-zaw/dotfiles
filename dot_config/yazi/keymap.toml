@@ -1,0 +1,19 @@
+# On the next Zellij panel (which should be a terminal), CD to the current directory
+[[mgr.prepend_keymap]]
+on  = "t"
+run = '''
+shell -- zellij action focus-next-pane; \
+  zellij action write-chars "cd \"$PWD\""; \
+  zellij action write 13; \
+'''
+desc = "Sync Zellij shell cwd to Yazi"
+# Launch Helix in a floating Zellij pane
+[[mgr.prepend_keymap]]
+on   = "O"
+run  = 'shell --orphan -- zellij action new-pane -f --close-on-exit -- hx "$0"'
+desc = "Open in Helix in floating Zellij pane (auto-close)"
+# Launch interactive open
+[[mgr.prepend_keymap]]
+on   = "<A-o>"
+run  = "open --interactive"
+desc = "Choose how to open file"
