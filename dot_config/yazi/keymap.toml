@@ -7,6 +7,12 @@ shell -- zellij action focus-next-pane; \
   zellij action write 13; \
 '''
 desc = "Sync Zellij shell cwd to Yazi"
+[[mgr.prepend_keymap]]
+on = "T"
+run = "tab_create"
+[[mgr.prepend_keymap]]
+on = "W"
+run = "tab_close"
 # Launch Helix in a floating Zellij pane
 [[mgr.prepend_keymap]]
 on   = "O"
