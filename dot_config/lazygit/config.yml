@@ -1,0 +1,6 @@
+gui:
+  authorColors:
+    '*': '#ebdbb2'  # gruvbox light fg, high contrast on dark
+
+git:
+  signOff: true
