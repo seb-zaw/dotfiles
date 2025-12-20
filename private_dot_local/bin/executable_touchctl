@@ -1,0 +1,92 @@
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Touchscreen stable identifier taken from your udev DEVPATH:
+# /devices/.../0018:04F3:43C7.0008/input/input19/event17
+#
+# If you ever need to update this, run:
+#   udevadm info -q property -n /dev/input/eventXX | grep DEVPATH
+TS_HID_ID="${TS_HID_ID:-0018:04F3:43C7.0008}"
+
+die() { echo "touchctl: $*" >&2; exit 1; }
+
+find_inhibited_node() {
+  # Find a matching input device via sysfs and return its inhibited attribute path.
+  # We avoid /sys/class/input/eventN because event numbers can change.
+  for input in /sys/devices/**/input/input*; do
+    [[ -e "$input" ]] || continue
+
+    # Match by presence of the HID-ish identifier in the syspath and by "inhibited" file presence.
+    if [[ "$input" == *"/${TS_HID_ID}/input/"* ]] && [[ -f "$input/inhibited" ]]; then
+      echo "$input/inhibited"
+      return 0
+    fi
+  done
+
+  # Fallback: if the above doesn't match (kernel path differences), try udev property scan.
+  # This is slower but still fine for a small number of devices.
+  for ev in /sys/class/input/event*; do
+    [[ -e "$ev" ]] || continue
+    local devnode="/dev/input/${ev##*/}"
+    if udevadm info -q property -n "$devnode" 2>/dev/null | grep -q '^ID_INPUT_TOUCHSCREEN=1$'; then
+      local p
+      p="$(readlink -f "$ev/device")"
+      [[ -f "$p/inhibited" ]] && { echo "$p/inhibited"; return 0; }
+    fi
+  done
+
+  return 1
+}
+
+get_state() {
+  local node
+  node="$(find_inhibited_node)" || die "could not locate touchscreen inhibited sysfs node"
+  cat "$node"
+}
+
+set_state() {
+  local want="$1" node
+  node="$(find_inhibited_node)" || die "could not locate touchscreen inhibited sysfs node"
+
+  # want: "0" = enabled, "1" = inhibited
+  echo "$want" | sudo tee "$node" >/dev/null
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  touchctl status   # prints: on|off
+  touchctl on       # enables touch
+  touchctl off      # disables touch
+  touchctl toggle   # toggles touch
+Environment:
+  TS_HID_ID=...     # override stable HID path id (default: 0018:04F3:43C7.0008)
+EOF
+}
+
+cmd="${1:-toggle}"
+
+case "$cmd" in
+  status)
+    s="$(get_state)"
+    if [[ "$s" == "0" ]]; then echo "on"; else echo "off"; fi
+    ;;
+  on)
+    set_state 0
+    ;;
+  off)
+    set_state 1
+    ;;
+  toggle)
+    s="$(get_state)"
+    if [[ "$s" == "0" ]]; then set_state 1; else set_state 0; fi
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage
+    die "unknown command: $cmd"
+    ;;
+esac
